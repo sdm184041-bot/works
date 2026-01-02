@@ -218,6 +218,71 @@ game:GetService("RunService").Heartbeat:Connect(function()
 end)
 
 warn("[+] headshots.cc : anticheat bypassed.")
+-- // DESYNC FULL NEUTRALIZER (UI SAFE, NO REPLACEMENTS)
+
+do
+    -- block common desync methods
+    local runService = game:GetService("RunService")
+    local stats = game:GetService("Stats")
+    local players = game:GetService("Players")
+    local lp = players.LocalPlayer
+
+    -- stop heartbeat / renderstep desync logic
+    for _, signal in ipairs({
+        runService.Heartbeat,
+        runService.RenderStepped,
+        runService.Stepped
+    }) do
+        for _, conn in ipairs(getconnections(signal)) do
+            pcall(function()
+                conn:Disable()
+            end)
+        end
+    end
+
+    -- hard-lock humanoid root part position changes
+    task.spawn(function()
+        while task.wait() do
+            local char = lp.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.AssemblyAngularVelocity = Vector3.zero
+            end
+        end
+    end)
+
+    -- block network sender rate / fake lag abuse
+    pcall(function()
+        if stats:FindFirstChild("Network") then
+            for _, v in ipairs(stats.Network:GetDescendants()) do
+                if v:IsA("NumberValue") then
+                    v.Value = 0
+                end
+            end
+        end
+    end)
+
+    -- permanently force-disable desync flags if they exist
+    task.spawn(function()
+        while task.wait(1) do
+            if library and library.flags then
+                if library.flags.Desync then
+                    library.flags.Desync.Enabled = false
+                end
+                if library.flags.Network then
+                    library.flags.Network.Desync = false
+                    library.flags.Network.UseSenderRate = false
+                    library.flags.Network.FakePos = false
+                end
+                if library.flags.Target then
+                    library.flags.Target.AutoKillDesync = false
+                end
+            end
+        end
+    end)
+end
+
 
 -- // UI Library //
 local uis = cloneref(game:GetService("UserInputService"))
