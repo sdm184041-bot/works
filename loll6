@@ -218,62 +218,47 @@ game:GetService("RunService").Heartbeat:Connect(function()
 end)
 
 warn("[+] headshots.cc : anticheat bypassed.")
--- // DESYNC FULL NEUTRALIZER (UI SAFE, NO REPLACEMENTS)
+-- // ABSOLUTE DESYNC KILL SWITCH (FORCED SERVER SYNC)
 
 do
-    -- block common desync methods
-    local runService = game:GetService("RunService")
-    local stats = game:GetService("Stats")
-    local players = game:GetService("Players")
-    local lp = players.LocalPlayer
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
 
-    -- stop heartbeat / renderstep desync logic
-    for _, signal in ipairs({
-        runService.Heartbeat,
-        runService.RenderStepped,
-        runService.Stepped
-    }) do
-        for _, conn in ipairs(getconnections(signal)) do
-            pcall(function()
-                conn:Disable()
-            end)
-        end
+    local lp = Players.LocalPlayer
+
+    local function lockCharacter()
+        local char = lp.Character
+        if not char then return end
+
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hrp or not hum then return end
+
+        -- force real physics
+        hrp.Anchored = false
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp:SetNetworkOwnershipAuto()
+
+        -- block fake states
+        hum:ChangeState(Enum.HumanoidStateType.Running)
     end
 
-    -- hard-lock humanoid root part position changes
-    task.spawn(function()
-        while task.wait() do
-            local char = lp.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                hrp.AssemblyLinearVelocity = Vector3.zero
-                hrp.AssemblyAngularVelocity = Vector3.zero
-            end
-        end
-    end)
+    -- hard overwrite ANY desync every frame
+    RunService.Heartbeat:Connect(lockCharacter)
+    RunService.Stepped:Connect(lockCharacter)
 
-    -- block network sender rate / fake lag abuse
-    pcall(function()
-        if stats:FindFirstChild("Network") then
-            for _, v in ipairs(stats.Network:GetDescendants()) do
-                if v:IsA("NumberValue") then
-                    v.Value = 0
-                end
-            end
-        end
-    end)
-
-    -- permanently force-disable desync flags if they exist
+    -- nuke desync flags forever (UI still works)
     task.spawn(function()
-        while task.wait(1) do
+        while task.wait(0.5) do
             if library and library.flags then
                 if library.flags.Desync then
                     library.flags.Desync.Enabled = false
                 end
                 if library.flags.Network then
                     library.flags.Network.Desync = false
-                    library.flags.Network.UseSenderRate = false
                     library.flags.Network.FakePos = false
+                    library.flags.Network.UseSenderRate = false
                 end
                 if library.flags.Target then
                     library.flags.Target.AutoKillDesync = false
@@ -282,7 +267,6 @@ do
         end
     end)
 end
-
 
 -- // UI Library //
 local uis = cloneref(game:GetService("UserInputService"))
